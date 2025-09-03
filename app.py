@@ -65,7 +65,7 @@ if st.button("📈 Calculate Model Accuracy"):
         else:
             st.warning("DBSCAN clustering too sparse for silhouette score.")
 
-# --- Display Results ---
+# --- Display Cluster Assignments ---
 st.subheader("🌍 Countries by Cluster")
 if 'Country' in df.columns:
     st.dataframe(df[['Country', 'Cluster']].sort_values(by='Cluster'))
@@ -79,6 +79,57 @@ summary_raw = df.groupby('Cluster')[numeric_cols].mean()
 valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
 summary = summary_raw[valid_cols].round(2)
 st.dataframe(summary)
+
+# --- Cluster Profiling ---
+st.subheader("🧠 Cluster Profiles")
+for cluster_id, row in summary.iterrows():
+    st.markdown(f"### Cluster {cluster_id}")
+    description = []
+
+    # GDP
+    gdp = row.get('GDP')
+    if gdp:
+        if gdp > 30000:
+            description.append("High GDP")
+        elif gdp > 10000:
+            description.append("Moderate GDP")
+        else:
+            description.append("Low GDP")
+
+    # Life Expectancy
+    life = row.get('Life Expectancy')
+    if life:
+        if life > 75:
+            description.append("High life expectancy")
+        elif life > 65:
+            description.append("Moderate life expectancy")
+        else:
+            description.append("Low life expectancy")
+
+    # Internet Usage
+    internet = row.get('Internet Usage')
+    if internet:
+        if internet > 70:
+            description.append("High internet usage")
+        elif internet > 40:
+            description.append("Moderate internet usage")
+        else:
+            description.append("Low internet usage")
+
+    # Birth Rate
+    birth = row.get('Birth Rate')
+    if birth:
+        if birth < 15:
+            description.append("Low birth rate")
+        elif birth < 25:
+            description.append("Moderate birth rate")
+        else:
+            description.append("High birth rate")
+
+    if description:
+        st.write("• " + "\n• ".join(description))
+    else:
+        st.write("No interpretable indicators for this cluster.")
 
 # --- PCA Visualization ---
 st.subheader("📉 Cluster Visualization (PCA)")
