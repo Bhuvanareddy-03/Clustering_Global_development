@@ -32,7 +32,7 @@ df = load_data()
 numeric_df = df.select_dtypes(include=['float64', 'int64'])
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(numeric_df)
-X_scaled = np.nan_to_num(X_scaled)  # Final cleanup
+X_scaled = np.nan_to_num(X_scaled)
 
 # --- Sidebar Options ---
 model_choice = st.sidebar.selectbox("Choose Clustering Model", ["KMeans", "DBSCAN"])
@@ -75,56 +75,38 @@ else:
 # --- Cluster Summary ---
 st.subheader("📋 Cluster Summary")
 numeric_cols = numeric_df.columns
-summary_raw = df.groupby('Cluster')[numeric_cols].mean()
+summary_raw = df[df['Cluster'] != -1].groupby('Cluster')[numeric_cols].mean()
 valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
 summary = summary_raw[valid_cols].round(2)
 st.dataframe(summary)
 
-# --- Cluster Profiling ---
+# --- Cluster Profiling with Adaptive Thresholds ---
 st.subheader("🧠 Cluster Profiles")
+
+# Compute global percentiles for each feature
+percentiles = df[numeric_cols].quantile([0.25, 0.5, 0.75])
+
 for cluster_id, row in summary.iterrows():
     st.markdown(f"### Cluster {cluster_id}")
     description = []
 
-    # GDP
-    gdp = row.get('GDP')
-    if gdp:
-        if gdp > 30000:
-            description.append("High GDP")
-        elif gdp > 10000:
-            description.append("Moderate GDP")
-        else:
-            description.append("Low GDP")
+    for col in valid_cols:
+        val = row[col]
+        if pd.isna(val):
+            continue
 
-    # Life Expectancy
-    life = row.get('Life Expectancy')
-    if life:
-        if life > 75:
-            description.append("High life expectancy")
-        elif life > 65:
-            description.append("Moderate life expectancy")
-        else:
-            description.append("Low life expectancy")
+        p25 = percentiles.loc[0.25, col]
+        p50 = percentiles.loc[0.5, col]
+        p75 = percentiles.loc[0.75, col]
 
-    # Internet Usage
-    internet = row.get('Internet Usage')
-    if internet:
-        if internet > 70:
-            description.append("High internet usage")
-        elif internet > 40:
-            description.append("Moderate internet usage")
+        if val <= p25:
+            label = f"Low {col}"
+        elif val <= p75:
+            label = f"Moderate {col}"
         else:
-            description.append("Low internet usage")
+            label = f"High {col}"
 
-    # Birth Rate
-    birth = row.get('Birth Rate')
-    if birth:
-        if birth < 15:
-            description.append("Low birth rate")
-        elif birth < 25:
-            description.append("Moderate birth rate")
-        else:
-            description.append("High birth rate")
+        description.append(label)
 
     if description:
         st.write("• " + "\n• ".join(description))
@@ -135,9 +117,22 @@ for cluster_id, row in summary.iterrows():
 st.subheader("📉 Cluster Visualization (PCA)")
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
+
 fig, ax = plt.subplots()
-scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=df['Cluster'], cmap='tab10')
-ax.set_title("Clusters in PCA Space")
+if model_choice == "DBSCAN":
+    unique_labels = set(labels)
+    colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+    for k, col in zip(unique_labels, colors):
+        if k == -1:
+            col = [0, 0, 0, 1]  # Black for noise
+        class_mask = (labels == k)
+        ax.plot(X_pca[class_mask, 0], X_pca[class_mask, 1], 'o',
+                markerfacecolor=tuple(col), markeredgecolor='k', markersize=8)
+    ax.set_title("DBSCAN Clusters (PCA)")
+else:
+    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap='tab10')
+    ax.set_title("KMeans Clusters (PCA)")
+
 ax.set_xlabel("PC1")
 ax.set_ylabel("PC2")
 st.pyplot(fig)
