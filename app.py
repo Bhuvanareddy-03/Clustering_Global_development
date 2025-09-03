@@ -96,7 +96,6 @@ for cluster_id, row in summary.iterrows():
             continue
 
         p25 = percentiles.loc[0.25, col]
-        p50 = percentiles.loc[0.5, col]
         p75 = percentiles.loc[0.75, col]
 
         if val <= p25:
@@ -113,26 +112,34 @@ for cluster_id, row in summary.iterrows():
     else:
         st.write("No interpretable indicators for this cluster.")
 
-# --- PCA Visualization ---
+# --- PCA Visualization with Legend ---
 st.subheader("📉 Cluster Visualization (PCA)")
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
 
 fig, ax = plt.subplots()
+
 if model_choice == "DBSCAN":
-    unique_labels = set(labels)
+    unique_labels = sorted(set(labels))
     colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+
     for k, col in zip(unique_labels, colors):
-        if k == -1:
-            col = [0, 0, 0, 1]  # Black for noise
+        label_name = "Noise" if k == -1 else f"Cluster {k}"
         class_mask = (labels == k)
-        ax.plot(X_pca[class_mask, 0], X_pca[class_mask, 1], 'o',
-                markerfacecolor=tuple(col), markeredgecolor='k', markersize=8)
+        ax.scatter(X_pca[class_mask, 0], X_pca[class_mask, 1],
+                   c=[col], label=label_name, edgecolors='k', s=80)
+
     ax.set_title("DBSCAN Clusters (PCA)")
 else:
-    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap='tab10')
+    unique_labels = sorted(set(labels))
+    for k in unique_labels:
+        class_mask = (labels == k)
+        ax.scatter(X_pca[class_mask, 0], X_pca[class_mask, 1],
+                   label=f"Cluster {k}", s=80)
+
     ax.set_title("KMeans Clusters (PCA)")
 
 ax.set_xlabel("PC1")
 ax.set_ylabel("PC2")
+ax.legend(title="Clusters", loc="best", fontsize='medium')
 st.pyplot(fig)
