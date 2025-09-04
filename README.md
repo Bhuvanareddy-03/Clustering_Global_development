@@ -1,6 +1,6 @@
-Global Development Clustering — Project Overview
+**Global Development Clustering — Project Overview**
 
-Objective: Cluster countries based on socio-economic indicators to uncover development patterns using unsupervised learning.
+**Objective**: Cluster countries based on socio-economic indicators to uncover development patterns using unsupervised learning.
 
 Clustering Methods: Implements KMeans, DBSCAN, and Hierarchical (Agglomerative) clustering.
 
