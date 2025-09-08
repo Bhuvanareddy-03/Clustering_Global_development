@@ -1,118 +1,147 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from sklearn.decomposition import PCA
 from scipy.cluster.hierarchy import linkage, dendrogram
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Clustering Global Development", layout="wide")
+# --- Page Setup ---
+st.set_page_config(page_title="Global Development Clustering", layout="wide")
+st.title("🌍 Global Development Clustering App")
 
-st.title("🌍 Clustering Global Development Data")
-
-# --- Upload Dataset ---
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
-    st.subheader("📊 Raw Data")
-    st.dataframe(df)
-
-    # --- Preprocessing ---
+# --- Load Data ---
+@st.cache_data
+def load_data():
+    df = pd.read_excel('World_development_mesurement.xlsx')
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-    string_cols = df.select_dtypes(include=['object']).columns
-
+    non_numeric_cols = df.select_dtypes(exclude=['float64', 'int64']).columns
     df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-    df[string_cols] = df[string_cols].fillna('Unknown')
+    df[non_numeric_cols] = df[non_numeric_cols].fillna('Unknown')
+    return df
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(df[numeric_cols])
+df = load_data()
 
-    # --- Clustering ---
-    st.sidebar.header("🔧 Clustering Settings")
-    n_clusters = st.sidebar.slider("Number of Clusters (KMeans & Hierarchical)", min_value=2, max_value=10, value=4)
-    eps = st.sidebar.slider("DBSCAN eps", min_value=0.1, max_value=5.0, value=1.5)
-    min_samples = st.sidebar.slider("DBSCAN min_samples", min_value=2, max_value=20, value=5)
+# --- Preprocessing ---
+numeric_df = df.select_dtypes(include=['float64', 'int64'])
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(numeric_df)
+X_scaled = np.nan_to_num(X_scaled)
 
-    # KMeans
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    kmeans.fit(X_scaled)
-    df['KMeans_Cluster'] = kmeans.labels_
+# --- Sidebar Options ---
+model_choice = st.sidebar.selectbox("Choose Clustering Model", ["KMeans", "DBSCAN", "Hierarchical"])
+n_clusters = st.sidebar.slider("Number of Clusters", min_value=2, max_value=10, value=4)
+eps = st.sidebar.slider("DBSCAN eps", min_value=0.5, max_value=5.0, value=1.5)
+min_samples = st.sidebar.slider("DBSCAN min_samples", min_value=3, max_value=10, value=5)
 
-    # DBSCAN
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    dbscan.fit(X_scaled)
-    df['DBSCAN_Cluster'] = dbscan.labels_
+# --- Clustering ---
+if model_choice == "KMeans":
+    model = KMeans(n_clusters=n_clusters, random_state=42)
+    labels = model.fit_predict(X_scaled)
+elif model_choice == "DBSCAN":
+    model = DBSCAN(eps=eps, min_samples=min_samples)
+    labels = model.fit_predict(X_scaled)
+elif model_choice == "Hierarchical":
+    model = AgglomerativeClustering(n_clusters=n_clusters)
+    labels = model.fit_predict(X_scaled)
 
-    # Hierarchical
-    hierarchical = AgglomerativeClustering(n_clusters=n_clusters)
-    hier_labels = hierarchical.fit_predict(X_scaled)
-    df['Hierarchical_Cluster'] = hier_labels
+df['Cluster'] = labels
 
-    # --- Evaluation ---
-    def safe_score(func, X, labels):
-        try:
-            return round(func(X, labels), 3)
-        except:
-            return 'N/A'
+# --- Evaluation Metrics ---
+def safe_score(func, X, labels):
+    try:
+        return round(func(X, labels), 3)
+    except:
+        return 'N/A'
 
-    kmeans_scores = {
-        'Silhouette': safe_score(silhouette_score, X_scaled, kmeans.labels_),
-        'Davies-Bouldin': safe_score(davies_bouldin_score, X_scaled, kmeans.labels_),
-        'Calinski-Harabasz': safe_score(calinski_harabasz_score, X_scaled, kmeans.labels_)
-    }
+if st.button("📈 Compare Clustering Accuracy"):
+    km = KMeans(n_clusters=n_clusters, random_state=42).fit(X_scaled)
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X_scaled)
+    hc = AgglomerativeClustering(n_clusters=n_clusters).fit(X_scaled)
 
-    dbscan_labels = dbscan.labels_
-    if len(set(dbscan_labels)) > 1 and -1 in dbscan_labels:
-        filtered = dbscan_labels != -1
-        dbscan_scores = {
-            'Silhouette': safe_score(silhouette_score, X_scaled[filtered], dbscan_labels[filtered]),
-            'Davies-Bouldin': safe_score(davies_bouldin_score, X_scaled[filtered], dbscan_labels[filtered]),
-            'Calinski-Harabasz': safe_score(calinski_harabasz_score, X_scaled[filtered], dbscan_labels[filtered])
-        }
-    else:
-        dbscan_scores = {'Silhouette': 'N/A', 'Davies-Bouldin': 'N/A', 'Calinski-Harabasz': 'N/A'}
+    db_valid = len(set(db.labels_)) > 1 and -1 in db.labels_
+    db_filtered = db.labels_ != -1 if db_valid else None
 
-    hier_scores = {
-        'Silhouette': safe_score(silhouette_score, X_scaled, hier_labels),
-        'Davies-Bouldin': safe_score(davies_bouldin_score, X_scaled, hier_labels),
-        'Calinski-Harabasz': safe_score(calinski_harabasz_score, X_scaled, hier_labels)
-    }
-
-    # --- Comparison Table ---
-    st.subheader("📈 Model Evaluation Comparison")
     comparison_df = pd.DataFrame({
         'Method': ['KMeans', 'DBSCAN', 'Hierarchical'],
-        'Silhouette Score': [kmeans_scores['Silhouette'], dbscan_scores['Silhouette'], hier_scores['Silhouette']],
-        'Davies-Bouldin Index': [kmeans_scores['Davies-Bouldin'], dbscan_scores['Davies-Bouldin'], hier_scores['Davies-Bouldin']],
-        'Calinski-Harabasz Index': [kmeans_scores['Calinski-Harabasz'], dbscan_scores['Calinski-Harabasz'], hier_scores['Calinski-Harabasz']]
+        'Silhouette Score': [
+            safe_score(silhouette_score, X_scaled, km.labels_),
+            safe_score(silhouette_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
+            safe_score(silhouette_score, X_scaled, hc.labels_)
+        ],
+        'Davies-Bouldin Index': [
+            safe_score(davies_bouldin_score, X_scaled, km.labels_),
+            safe_score(davies_bouldin_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
+            safe_score(davies_bouldin_score, X_scaled, hc.labels_)
+        ],
+        'Calinski-Harabasz Index': [
+            safe_score(calinski_harabasz_score, X_scaled, km.labels_),
+            safe_score(calinski_harabasz_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
+            safe_score(calinski_harabasz_score, X_scaled, hc.labels_)
+        ]
     })
+
+    st.subheader("📊 Clustering Evaluation Metrics")
     st.dataframe(comparison_df)
 
-    # --- PCA Visualization ---
-    st.subheader("🧬 Cluster Visualization (PCA)")
-    pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X_scaled)
+# --- Display Cluster Assignments ---
+st.subheader("🌍 Countries by Cluster")
+if 'Country' in df.columns:
+    st.dataframe(df[['Country', 'Cluster']].sort_values(by='Cluster'))
+else:
+    st.dataframe(df[['Cluster']].sort_values(by='Cluster'))
 
-    def plot_clusters(labels, title):
-        fig, ax = plt.subplots()
-        unique_labels = sorted(set(labels))
-        colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
-        for k, col in zip(unique_labels, colors):
-            mask = (labels == k)
-            ax.scatter(X_pca[mask, 0], X_pca[mask, 1], c=[col], label=f"Cluster {k}", edgecolors='k', s=60)
-        ax.set_title(title)
-        ax.set_xlabel("PC1")
-        ax.set_ylabel("PC2")
-        ax.legend()
-        st.pyplot(fig)
+# --- Cluster Summary ---
+st.subheader("📋 Cluster Summary")
+summary_raw = df[df['Cluster'] != -1].groupby('Cluster')[numeric_df.columns].mean()
+valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
+summary = summary_raw[valid_cols].round(2)
+st.dataframe(summary)
 
-    plot_clusters(kmeans.labels_, "KMeans Clusters")
-    plot_clusters(dbscan.labels_, "DBSCAN Clusters")
-    plot_clusters(hier_labels, "Hierarchical Clusters")
+# --- Cluster Profiling ---
+st.subheader("🧠 Cluster Profiles")
+percentiles = df[numeric_df.columns].quantile([0.25, 0.5, 0.75])
+for cluster_id, row in summary.iterrows():
+    st.markdown(f"### Cluster {cluster_id}")
+    description = []
+    for col in valid_cols:
+        val = row[col]
+        if pd.isna(val): continue
+        p25 = percentiles.loc[0.25, col]
+        p75 = percentiles.loc[0.75, col]
+        if val <= p25:
+            label = f"Low {col}"
+        elif val <= p75:
+            label = f"Moderate {col}"
+        else:
+            label = f"High {col}"
+        description.append(label)
+    st.write("• " + "\n• ".join(description) if description else "No interpretable indicators.")
 
-    # --- Optional Dendrogram ---
+# --- PCA Visualization ---
+st.subheader("📉 Cluster Visualization (PCA)")
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+fig, ax = plt.subplots()
+unique_labels = sorted(set(labels))
+colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+
+for k, col in zip(unique_labels, colors):
+    label_name = "Noise" if k == -1 else f"Cluster {k}"
+    class_mask = (labels == k)
+    ax.scatter(X_pca[class_mask, 0], X_pca[class_mask, 1],
+               c=[col], label=label_name, edgecolors='k', s=80)
+
+ax.set_title(f"{model_choice} Clusters (PCA)")
+ax.set_xlabel("PC1")
+ax.set_ylabel("PC2")
+ax.legend(title="Clusters", loc="best", fontsize='medium')
+st.pyplot(fig)
+
+# --- Optional Dendrogram ---
+if model_choice == "Hierarchical":
     st.subheader("🌿 Hierarchical Dendrogram")
     linked = linkage(X_scaled, method='ward')
     fig, ax = plt.subplots(figsize=(10, 5))
