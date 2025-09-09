@@ -17,7 +17,7 @@ st.title("🌍 Global Development Clustering App")
 def load_data():
     df = pd.read_excel('World_development_mesurement.xlsx')
 
-    # Drop unwanted column
+    # Drop unwanted column early
     df = df.drop(columns=["number_of_records"], errors="ignore")
 
     # Remove $ and % symbols and convert to float
@@ -51,7 +51,9 @@ def load_data():
 df = load_data()
 
 # --- Preprocessing ---
+# Re-select numeric columns AFTER cleaning
 numeric_df = df.select_dtypes(include=['float64', 'int64'])
+
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(numeric_df)
 X_scaled = np.nan_to_num(X_scaled)
@@ -122,7 +124,6 @@ else:
 # --- Cluster Summary ---
 st.subheader("📋 Cluster Summary")
 summary_raw = df[df['Cluster'] != -1].groupby('Cluster')[numeric_df.columns].mean()
-summary_raw = summary_raw.drop(columns=["number_of_records"], errors="ignore")  # Ensure it's gone
 valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
 summary = summary_raw[valid_cols].round(2)
 st.dataframe(summary)
