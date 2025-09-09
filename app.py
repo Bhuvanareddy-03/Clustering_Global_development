@@ -122,6 +122,7 @@ else:
 # --- Cluster Summary ---
 st.subheader("📋 Cluster Summary")
 summary_raw = df[df['Cluster'] != -1].groupby('Cluster')[numeric_df.columns].mean()
+summary_raw = summary_raw.drop(columns=["number_of_records"], errors="ignore")  # Ensure it's gone
 valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
 summary = summary_raw[valid_cols].round(2)
 st.dataframe(summary)
