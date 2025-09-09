@@ -18,7 +18,7 @@ def load_data():
     df = pd.read_excel('World_development_mesurement.xlsx')
 
     # Drop unwanted column early
-    df = df.drop(columns=["number_of_records"], errors="ignore")
+    df = df.drop(columns=["Number of Records"], errors="ignore")
 
     # Remove $ and % symbols and convert to float
     for col in df.columns:
