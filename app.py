@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.decomposition import PCA
@@ -12,14 +12,39 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Global Development Clustering", layout="wide")
 st.title("🌍 Global Development Clustering App")
 
-# --- Load Data ---
+# --- Load and Clean Data ---
 @st.cache_data
 def load_data():
     df = pd.read_excel('World_development_mesurement.xlsx')
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-    non_numeric_cols = df.select_dtypes(exclude=['float64', 'int64']).columns
-    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-    df[non_numeric_cols] = df[non_numeric_cols].fillna('Unknown')
+
+    # Drop unwanted column
+    df = df.drop(columns=["number_of_records"], errors="ignore")
+
+    # Remove $ and % symbols and convert to float
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.replace(r"[\$,%]", "", regex=True)
+        try:
+            df[col] = df[col].astype(float)
+        except:
+            pass  # Skip non-numeric columns
+
+    # Encode 'Country' column
+    if 'Country' in df.columns:
+        le = LabelEncoder()
+        df['Country_encoded'] = le.fit_transform(df['Country'])
+        df['Country_encoded'] = df['Country_encoded'].astype(float)
+        df.drop('Country', axis=1, inplace=True)
+
+    # Impute missing values
+    num_cols = df.select_dtypes(include="number").columns.tolist()
+    cat_cols = df.select_dtypes(exclude="number").columns.tolist()
+
+    if num_cols:
+        df[num_cols] = df[num_cols].fillna(df[num_cols].median())
+    if cat_cols:
+        cat_cols = [col for col in cat_cols if not df[col].isnull().all()]
+        df[cat_cols] = df[cat_cols].fillna(df[cat_cols].mode().iloc[0])
+
     return df
 
 df = load_data()
@@ -87,9 +112,9 @@ if st.button("📈 Compare Clustering Accuracy"):
     st.dataframe(comparison_df)
 
 # --- Display Cluster Assignments ---
-st.subheader("🌍 Countries by Cluster")
-if 'Country' in df.columns:
-    st.dataframe(df[['Country', 'Cluster']].sort_values(by='Cluster'))
+st.subheader("🌍 Cluster Assignments")
+if 'Country_encoded' in df.columns:
+    st.dataframe(df[['Country_encoded', 'Cluster']].sort_values(by='Cluster'))
 else:
     st.dataframe(df[['Cluster']].sort_values(by='Cluster'))
 
