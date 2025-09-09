@@ -35,15 +35,16 @@ def load_data():
         df['Country_encoded'] = df['Country_encoded'].astype(float)
         df.drop('Country', axis=1, inplace=True)
 
+    # Convert other categorical columns to float
+    cat_cols = df.select_dtypes(exclude=["number"]).columns.tolist()
+    cat_cols = [col for col in cat_cols if col != "Country_encoded"]
+    for col in cat_cols:
+        df[col] = pd.factorize(df[col])[0].astype(float)
+
     # Impute missing values
     num_cols = df.select_dtypes(include="number").columns.tolist()
-    cat_cols = df.select_dtypes(exclude="number").columns.tolist()
-
     if num_cols:
         df[num_cols] = df[num_cols].fillna(df[num_cols].median())
-    if cat_cols:
-        cat_cols = [col for col in cat_cols if not df[col].isnull().all()]
-        df[cat_cols] = df[cat_cols].fillna(df[cat_cols].mode().iloc[0])
 
     return df
 
