@@ -85,34 +85,55 @@ def safe_score(func, X, labels):
         return 'N/A'
 
 if st.button("📈 Compare Clustering Accuracy"):
+    # Fit models
     km = KMeans(n_clusters=n_clusters, random_state=42).fit(X_scaled)
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(X_scaled)
     hc = AgglomerativeClustering(n_clusters=n_clusters).fit(X_scaled)
 
+    # DBSCAN filtering
     db_valid = len(set(db.labels_)) > 1 and -1 in db.labels_
     db_filtered = db.labels_ != -1 if db_valid else None
 
+    # Compute metrics
+    km_sil = safe_score(silhouette_score, X_scaled, km.labels_)
+    db_sil = safe_score(silhouette_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A'
+    hc_sil = safe_score(silhouette_score, X_scaled, hc.labels_)
+
+    km_db = safe_score(davies_bouldin_score, X_scaled, km.labels_)
+    db_db = safe_score(davies_bouldin_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A'
+    hc_db = safe_score(davies_bouldin_score, X_scaled, hc.labels_)
+
+    km_ch = safe_score(calinski_harabasz_score, X_scaled, km.labels_)
+    db_ch = safe_score(calinski_harabasz_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A'
+    hc_ch = safe_score(calinski_harabasz_score, X_scaled, hc.labels_)
+
+    # Create comparison table
     comparison_df = pd.DataFrame({
         'Method': ['KMeans', 'DBSCAN', 'Hierarchical'],
-        'Silhouette Score': [
-            safe_score(silhouette_score, X_scaled, km.labels_),
-            safe_score(silhouette_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
-            safe_score(silhouette_score, X_scaled, hc.labels_)
-        ],
-        'Davies-Bouldin Index': [
-            safe_score(davies_bouldin_score, X_scaled, km.labels_),
-            safe_score(davies_bouldin_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
-            safe_score(davies_bouldin_score, X_scaled, hc.labels_)
-        ],
-        'Calinski-Harabasz Index': [
-            safe_score(calinski_harabasz_score, X_scaled, km.labels_),
-            safe_score(calinski_harabasz_score, X_scaled[db_filtered], db.labels_[db_filtered]) if db_valid else 'N/A',
-            safe_score(calinski_harabasz_score, X_scaled, hc.labels_)
-        ]
+        'Silhouette Score': [km_sil, db_sil, hc_sil],
+        'Davies-Bouldin Index': [km_db, db_db, hc_db],
+        'Calinski-Harabasz Index': [km_ch, db_ch, hc_ch]
     })
 
     st.subheader("📊 Clustering Evaluation Metrics")
     st.dataframe(comparison_df)
+
+    # --- Best Model Selection ---
+    weighted_scores = {}
+    for i, row in comparison_df.iterrows():
+        sil = row['Silhouette Score'] if row['Silhouette Score'] != 'N/A' else -1
+        db = row['Davies-Bouldin Index'] if row['Davies-Bouldin Index'] != 'N/A' else float('inf')
+        ch = row['Calinski-Harabasz Index'] if row['Calinski-Harabasz Index'] != 'N/A' else -1
+        score = sil * 0.4 - db * 0.3 + ch * 0.3
+        weighted_scores[row['Method']] = score
+
+    best_model = max(weighted_scores, key=weighted_scores.get)
+    best_score = round(weighted_scores[best_model], 3)
+
+    st.subheader("🏆 Best Model Selection")
+    st.write(f"**Best Model:** {best_model}")
+    st.write(f"**Weighted Score:** {best_score}")
+
 
 # --- Display Cluster Assignments ---
 st.subheader("🌍 Cluster Assignments")
