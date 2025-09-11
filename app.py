@@ -177,7 +177,44 @@ for cluster_id, row in summary.iterrows():
 
 # --- PCA Visualization ---
 st.subheader("📉 Cluster Visualization (PCA)")
+# Reduce dimensions for visualization
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
-fig, ax = plt.subplots()
-unique
+
+# Plot clusters
+fig, ax = plt.subplots(figsize=(10, 6))
+unique_labels = sorted(set(labels))
+colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, max(len(unique_labels), 2))]
+
+for k, col in zip(unique_labels, colors):
+    label_name = "Noise" if k == -1 else f"Cluster {k}"
+    class_mask = (labels == k)
+    ax.scatter(
+        X_pca[class_mask, 0],
+        X_pca[class_mask, 1],
+        c=[col] if k != -1 else 'k',
+        label=label_name,
+        edgecolors='k',
+        s=80
+    )
+
+ax.set_title(f"{model_choice} Clusters (PCA)")
+ax.set_xlabel("PC1")
+ax.set_ylabel("PC2")
+ax.legend(title="Clusters", loc="best", fontsize='medium')
+st.pyplot(fig)
+# --- Optional Dendrogram ---
+if model_choice == "Hierarchical":
+    st.subheader(" Hierarchical Dendrogram")
+
+    # Compute linkage matrix
+    linked = linkage(X_scaled, method='ward')
+
+    # Plot dendrogram
+    fig, ax = plt.subplots(figsize=(10, 5))
+    dendrogram(linked, ax=ax)
+    ax.set_title("Hierarchical Clustering Dendrogram")
+    ax.set_xlabel("Samples")
+    ax.set_ylabel("Distance")
+    st.pyplot(fig)
+
