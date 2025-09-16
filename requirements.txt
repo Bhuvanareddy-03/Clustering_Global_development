@@ -1,7 +1,8 @@
+streamlit 
+pandas 
+numpy 
+matplotlib 
+seaborn 
 scikit-learn
-pandas
-matplotlib
-streamlit
+missingno 
 openpyxl
-seaborn
-missingo
