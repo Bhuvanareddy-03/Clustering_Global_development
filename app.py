@@ -77,13 +77,13 @@ def get_silhouette(X, labels):
     except:
         return 'N/A'
 
-if st.button("📈 Evaluate Clustering"):
+if st.button(" Evaluate Clustering"):
     score = get_silhouette(X_scaled, labels)
-    st.subheader("📊 Silhouette Score")
+    st.subheader(" Silhouette Score")
     st.write(f"**{model_choice} Score:** {score}")
 
 # --- Best Model Selection (Silhouette Only) ---
-if st.button("🏆 Select Best Model by Silhouette Score"):
+if st.button(" Select Best Model by Silhouette Score"):
     km = KMeans(n_clusters=n_clusters, random_state=42).fit(X_scaled)
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(X_scaled)
     hc = AgglomerativeClustering(n_clusters=n_clusters).fit(X_scaled)
@@ -104,7 +104,7 @@ if st.button("🏆 Select Best Model by Silhouette Score"):
     best_model = max(scores, key=scores.get)
     best_score = scores[best_model]
 
-    st.subheader("🏅 Best Model Based on Silhouette Score")
+    st.subheader(" Best Model Based on Silhouette Score")
     st.write(f"**Best Model:** {best_model}")
     st.write(f"**Silhouette Score:** {best_score}")
 
@@ -116,14 +116,14 @@ else:
     st.dataframe(df[['Cluster']].sort_values(by='Cluster'))
 
 # --- Cluster Summary ---
-st.subheader("📋 Cluster Summary")
+st.subheader(" Cluster Summary")
 summary_raw = df[df['Cluster'] != -1].groupby('Cluster')[numeric_df.columns].mean()
 valid_cols = summary_raw.columns[~summary_raw.isnull().any()]
 summary = summary_raw[valid_cols].round(2)
 st.dataframe(summary)
 
 # --- Cluster Profiling ---
-st.subheader("🧠 Cluster Profiles")
+st.subheader(" Cluster Profiles")
 percentiles = df[numeric_df.columns].quantile([0.25, 0.5, 0.75])
 for cluster_id, row in summary.iterrows():
     st.markdown(f"### Cluster {cluster_id}")
