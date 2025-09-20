@@ -143,7 +143,7 @@ for cluster_id, row in summary.iterrows():
     st.write("• " + "\n• ".join(description) if description else "No interpretable indicators.")
 
 # --- PCA Visualization ---
-st.subheader("📉 Cluster Visualization (PCA)")
+st.subheader("Cluster Visualization (PCA)")
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
 
