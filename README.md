@@ -19,3 +19,5 @@
 **Use Case**: Ideal for policy analysis, development research, and exploratory data science.
 
 **Tech Stack**: Python, pandas, scikit-learn, matplotlib, Streamlit
+
+ link:https://clusteringglobaldevelopment-uhwbphzzpdncpdcc3ijcq9.streamlit.app/
